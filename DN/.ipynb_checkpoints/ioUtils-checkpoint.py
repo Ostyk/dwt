@@ -22,7 +22,7 @@ def read_ids(path):
     return [line.rstrip('\n') for line in open(path)]
 
 
-class Batch_Feeder_old:
+class Batch_Feeder:
     def __init__(self, dataset, indices, train, batchSize, padWidth=None, padHeight=None, flip=False, keepEmpty=True):
         self._epochs_completed = 0
         self._index_in_epoch = 0
