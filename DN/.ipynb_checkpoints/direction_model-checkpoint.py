@@ -19,11 +19,11 @@ class Network:
             for path in modelWeightPaths:
                 self.modelDict.update(sio.loadmat(path))
 
-    def build(self, inputData, ss=None, ssMask=None, keepProb=1.0):
+    def build(self, inputData, ss=None, keepProb=1.0):
         # ss_3 = tf.tile(tf.expand_dims(ss, -1), [1, 1, 1, 3])
-        inputData = inputData * tf.expand_dims(ss, -1)
+#         inputData = inputData * tf.expand_dims(ss, -1)
 
-        inputData = tf.concat(3, [inputData, tf.expand_dims(ssMask,-1)])
+        inputData = tf.concat([inputData, tf.expand_dims(ss,-1)], axis=3)
 
         self.conv1_1 = self._conv_layer(inputData, params=self._params["direction/conv1_1"])
         self.conv1_2 = self._conv_layer(self.conv1_1, params=self._params["direction/conv1_2"])
@@ -47,7 +47,7 @@ class Network:
         self.conv5_2 = self._conv_layer(self.conv5_1, params=self._params["direction/conv5_2"])
         self.conv5_3 = self._conv_layer(self.conv5_2, params=self._params["direction/conv5_3"])
 
-        print "built all CNN layers!"
+        print ("built all CNN layers!")
 
         self.fcn5_1 = self._conv_layer(self.conv5_3, params=self._params["direction/fcn5_1"])
         self.fcn5_2 = self._conv_layer(self.fcn5_1, params=self._params["direction/fcn5_2"])
@@ -61,18 +61,18 @@ class Network:
         self.fcn3_2 = self._conv_layer(self.fcn3_1, params=self._params["direction/fcn3_2"])
         self.fcn3_3 = self._conv_layer(self.fcn3_2, params=self._params["direction/fcn3_3"])
 
-        print "built all FCN layers!"
+        print ("built all FCN layers!")
 
         self.upscore5_3 = self._upscore_layer(self.fcn5_3, params=self._params["direction/upscore5_3"],
                                            shape=tf.shape(self.fcn3_3))
         self.upscore4_3 = self._upscore_layer(self.fcn4_3, params=self._params["direction/upscore4_3"],
                                            shape=tf.shape(self.fcn3_3))
 
-        self.fuse3 = tf.concat(3, [self.fcn3_3, self.upscore5_3, self.upscore4_3], name="direction/fuse3")
+        self.fuse3 = tf.concat([self.fcn3_3, self.upscore5_3, self.upscore4_3], axis=3, name="direction/fuse3")
         self.fuse3_1 = self._conv_layer(self.fuse3, params=self._params["direction/fuse3_1"])
         self.fuse3_2 = self._conv_layer(self.fuse3_1, params=self._params["direction/fuse3_2"])
         self.fuse3_3 = self._conv_layer(self.fuse3_2, params=self._params["direction/fuse3_3"])
-        print "built all fusing layers"
+        print ("built all fusing layers")
 
         self.output = self._upscore_layer(self.fuse3_3, params=self._params["direction/upscore3_1"],
                                           shape=tf.shape(inputData))
@@ -80,10 +80,11 @@ class Network:
         # ss_2 = tf.tile(tf.expand_dims(ss,-1),[1,1,1,2])
         # self.output = self.output * ss_2
         self.output = self.output * tf.expand_dims(ss, -1)
+        # TO DO: might have to check this out
 
         self.output = tf.nn.l2_normalize(self.output, 3, epsilon=1e-20)
 
-        print "built the output layer!"
+        print ("built the output layer!")
     # LAYER BUILDING
 
     def _max_pool(self, bottom, name):
@@ -112,7 +113,7 @@ class Network:
             elif params["act"] == "tanh":
                 activation = tf.nn.tanh(tf.nn.bias_add(conv, conv_biases))
 
-            if not isinstance(keepProb, (int, long, float)):
+            if not isinstance(keepProb, (int, np.long, float)):
                 activation = tf.nn.dropout(activation, keep_prob=keepProb, seed=0)
 
         return activation
@@ -122,10 +123,10 @@ class Network:
     def get_bias(self, params):
         if params["name"]+"/biases" in self.modelDict:
             init = tf.constant_initializer(value=self.modelDict[params["name"]+"/biases"], dtype=tf.float32)
-            print "loaded " + params["name"] + "/biases"
+            print ("loaded " + params["name"] + "/biases")
         else:
             init = tf.constant_initializer(value=0.0)
-            print "generated " + params["name"] + "/biases"
+            print ("generated " + params["name"] + "/biases")
 
         var = tf.get_variable(name="biases", initializer=init, shape=params["shape"][3])
 
@@ -135,7 +136,7 @@ class Network:
         if params["name"]+"/weights" in self.modelDict:
             init = tf.constant_initializer(value=self.modelDict[params["name"]+"/weights"], dtype=tf.float32)
             var = tf.get_variable(name="weights", initializer=init, shape=params["shape"])
-            print "loaded " + params["name"]+"/weights"
+            print ("loaded " + params["name"]+"/weights")
         else:
             if params["std"]:
                 stddev = params["std"]
@@ -145,10 +146,10 @@ class Network:
 
             init = tf.truncated_normal(shape=params["shape"], stddev=stddev, seed=0)
             var = tf.get_variable(name="weights", initializer=init)
-            print "generated " + params["name"] + "/weights"
+            print ("generated " + params["name"] + "/weights")
 
         if not tf.get_variable_scope().reuse:
-            weightDecay = tf.mul(tf.nn.l2_loss(var), self._wd,
+            weightDecay = tf.multiply(tf.nn.l2_loss(var), self._wd,
                                   name='weight_loss')
             tf.add_to_collection('losses', weightDecay)
 
@@ -160,7 +161,7 @@ class Network:
             in_features = bottom.get_shape()[3].value
 
             new_shape = [shape[0], shape[1], shape[2], params["outputChannels"]]
-            output_shape = tf.pack(new_shape)
+            output_shape = tf.stack(new_shape)
 
             f_shape = [params["ksize"], params["ksize"], params["outputChannels"], in_features]
 

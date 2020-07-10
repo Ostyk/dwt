@@ -1,10 +1,10 @@
 import tensorflow as tf
 
-def angularErrorTotal(pred, gt, weight, ss, outputChannels=2):
+def angularErrorTotal(pred, gt, ss, outputChannels=2):
     with tf.name_scope("angular_error"):
         pred = tf.reshape(pred, (-1, outputChannels))
         gt = tf.to_float(tf.reshape(gt, (-1, outputChannels)))
-        weight = tf.to_float(tf.reshape(weight, (-1, 1)))
+        #weight = tf.to_float(tf.reshape(weight, (-1, 1)))
         ss = tf.to_float(tf.reshape(ss, (-1, 1)))
 
         pred = tf.nn.l2_normalize(pred, 1) * 0.999999
@@ -12,12 +12,12 @@ def angularErrorTotal(pred, gt, weight, ss, outputChannels=2):
 
         errorAngles = tf.acos(tf.reduce_sum(pred * gt, reduction_indices=[1], keep_dims=True))
 
-        lossAngleTotal = tf.reduce_sum((tf.abs(errorAngles*errorAngles))*ss*weight)
+        lossAngleTotal = tf.reduce_sum((tf.abs(errorAngles*errorAngles))*ss)
 
         return lossAngleTotal
 
-def angularErrorLoss(pred, gt, weight, ss, outputChannels=2):
-        lossAngleTotal = angularErrorTotal(pred=pred, gt=gt, ss=ss, weight=weight, outputChannels=outputChannels) \
+def angularErrorLoss(pred, gt, ss, outputChannels=2):
+        lossAngleTotal = angularErrorTotal(pred=pred, gt=gt, ss=ss, outputChannels=outputChannels) \
                          / (countTotal(ss)+1)
 
         tf.add_to_collection('losses', lossAngleTotal)
