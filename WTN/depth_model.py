@@ -22,6 +22,8 @@ class Network:
                 self.modelDict.update(sio.loadmat(path))
 
     def build(self, inputData, ss, keepProb=1):
+
+        
         self.conv1_1 = self._conv_layer(inputData, params=self._params["depth/conv1_1"])
         self.conv1_2 = self._conv_layer(self.conv1_1, params=self._params["depth/conv1_2"])
         self.pool1 = self._average_pool(self.conv1_2, 'depth/pool')
@@ -88,10 +90,10 @@ class Network:
     def get_bias(self, params):
         if params["name"]+"/biases" in self.modelDict:
             init = tf.constant_initializer(value=self.modelDict[params["name"]+"/biases"], dtype=tf.float32)
-            print "loaded " + params["name"] + "/biases"
+            print ("loaded " + params["name"] + "/biases")
         else:
             init = tf.constant_initializer(value=0.0)
-            print "generated " + params["name"] + "/biases"
+            print ("generated " + params["name"] + "/biases")
 
         var = tf.get_variable(name="biases", initializer=init, shape=params["shape"][3])
 
@@ -101,7 +103,7 @@ class Network:
         if params["name"]+"/weights" in self.modelDict:
             init = tf.constant_initializer(value=self.modelDict[params["name"]+"/weights"], dtype=tf.float32)
             var = tf.get_variable(name="weights", initializer=init, shape=params["shape"])
-            print "loaded " + params["name"]+"/weights"
+            print ("loaded " + params["name"]+"/weights")
         else:
             if params["std"]:
                 stddev = params["std"]
@@ -111,10 +113,10 @@ class Network:
 
             init = tf.truncated_normal(shape=params["shape"], stddev=stddev, seed=0)
             var = tf.get_variable(name="weights", initializer=init)
-            print "generated " + params["name"] + "/weights"
+            print ("generated " + params["name"] + "/weights")
 
         if not tf.get_variable_scope().reuse:
-            weightDecay = tf.mul(tf.nn.l2_loss(var), self._wd,
+            weightDecay = tf.multiply(tf.nn.l2_loss(var), self._wd,
                                   name='weight_loss')
             tf.add_to_collection('losses', weightDecay)
 
@@ -126,7 +128,7 @@ class Network:
             in_features = bottom.get_shape()[3].value
 
             new_shape = [shape[0], shape[1], shape[2], params["outputChannels"]]
-            output_shape = tf.pack(new_shape)
+            output_shape = tf.stack(new_shape)
 
             f_shape = [params["ksize"], params["ksize"], params["outputChannels"], in_features]
 
@@ -138,7 +140,7 @@ class Network:
     def get_deconv_filter(self, f_shape, params):
         if params["name"]+"/up_filter" in self.modelDict:
             init = tf.constant_initializer(value=self.modelDict[params["name"]+"/up_filter"], dtype=tf.float32)
-            print "loaded " + params["name"]+"/up_filter"
+            print ("loaded " + params["name"]+"/up_filter")
         else:
             width = f_shape[0]
             height = f_shape[0]
@@ -155,6 +157,6 @@ class Network:
 
             init = tf.constant_initializer(value=weights,
                                            dtype=tf.float32)
-            print "generated " + params["name"] + "/up_filter"
+            print ("generated " + params["name"] + "/up_filter")
 
         return tf.get_variable(name="up_filter", initializer=init, shape=f_shape)

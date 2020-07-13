@@ -80,78 +80,78 @@ def forward_model(model, feeder, outputSavePath):
 
 def train_model(model, outputChannels, learningRate, trainFeeder, valFeeder, modelSavePath=None, savePrefix=None, initialIteration=1):
     with tf.Session() as sess:
-    tfBatchImages = tf.placeholder("float", shape=[None, 384, 384, 3])
-    tfBatchGT = tf.placeholder("float", shape=[None, 384, 384, 2])
-    tfBatchSS = tf.placeholder("float", shape=[None, 384, 384])
+        tfBatchImages = tf.placeholder("float", shape=[None, 384, 384, 3])
+        tfBatchGT = tf.placeholder("float", shape=[None, 384, 384, 2])
+        tfBatchSS = tf.placeholder("float", shape=[None, 384, 384])
 
-    with tf.name_scope("model_builder"):
-        print ("attempting to build model")
-        model.build(tfBatchImages, tfBatchSS)
-        print ("built the model")
-        
-    sys.stdout.flush()
-    loss = lossFunction.angularErrorLoss(pred=model.output, gt=tfBatchGT, ss=tfBatchSS, outputChannels=outputChannels)
+        with tf.name_scope("model_builder"):
+            print ("attempting to build model")
+            model.build(tfBatchImages, tfBatchSS)
+            print ("built the model")
 
-    angleError = lossFunction.angularErrorTotal(pred=model.output, gt=tfBatchGT, ss=tfBatchSS, outputChannels=outputChannels)
-    numPredicted = lossFunction.countTotal(ss=tfBatchSS)
-    #numPredictedWeighted = lossFunction.countTotalWeighted(ss=tfBatchSS, weight=tfBatchWeight)
-    exceed45 = lossFunction.exceedingAngleThreshold(pred=model.output, gt=tfBatchGT,
-                                                    ss=tfBatchSS, threshold=45.0, outputChannels=outputChannels)
-    exceed225 = lossFunction.exceedingAngleThreshold(pred=model.output, gt=tfBatchGT,
-                                                    ss=tfBatchSS, threshold=22.5, outputChannels=outputChannels)
-
-    train_op = tf.train.AdamOptimizer(learning_rate=learningRate).minimize(loss=loss)
-
-    init = tf.initialize_all_variables()
-
-    sess.run(init)
-    iteration = initialIteration
-    
-    
-    while iteration < 1000:
-        batchLosses = []
-        totalAngleError = 0
-        totalExceed45 = 0
-        totalExceed225 = 0
-        totalPredicted = 0
-
-        for k in tqdm(range(int(math.floor(valFeeder.total_samples() / batchSize)))):
-            imageBatch, gtBatch, ssBatch = valFeeder.next_batch()
-
-            batchLoss, batchAngleError, batchPredicted, batchExceed45, batchExceed225 = sess.run(
-                [loss, angleError, numPredicted, exceed45, exceed225],
-                feed_dict={tfBatchImages: imageBatch,
-                           tfBatchGT: gtBatch,
-                           tfBatchSS: ssBatch})
-            # print "ran iteration"
-            batchLosses.append(batchLoss)
-            totalAngleError += batchAngleError
-            totalPredicted += batchPredicted
-            totalExceed45 += batchExceed45
-            totalExceed225 += batchExceed225
-
-        if np.isnan(np.mean(batchLosses)):
-            print ("LOSS RETURNED NaN")
-            sys.stdout.flush()
-            break
-
-        print ("%s Itr: %d - val loss: %.3f, angle MSE: %.3f, exceed45: %.3f, exceed22.5: %.3f" % (
-            time.strftime("%H:%M:%S"), iteration,
-        float(np.mean(batchLosses)), totalAngleError / totalPredicted,
-        totalExceed45 / totalPredicted, totalExceed225 / totalPredicted))
         sys.stdout.flush()
+        loss = lossFunction.angularErrorLoss(pred=model.output, gt=tfBatchGT, ss=tfBatchSS, outputChannels=outputChannels)
 
-        if (iteration > 0 and iteration % 5 == 0) or checkSaveFlag(modelSavePath):
-            modelSaver(sess, modelSavePath, savePrefix, iteration)
+        angleError = lossFunction.angularErrorTotal(pred=model.output, gt=tfBatchGT, ss=tfBatchSS, outputChannels=outputChannels)
+        numPredicted = lossFunction.countTotal(ss=tfBatchSS)
+        #numPredictedWeighted = lossFunction.countTotalWeighted(ss=tfBatchSS, weight=tfBatchWeight)
+        exceed45 = lossFunction.exceedingAngleThreshold(pred=model.output, gt=tfBatchGT,
+                                                        ss=tfBatchSS, threshold=45.0, outputChannels=outputChannels)
+        exceed225 = lossFunction.exceedingAngleThreshold(pred=model.output, gt=tfBatchGT,
+                                                        ss=tfBatchSS, threshold=22.5, outputChannels=outputChannels)
 
-        for j in range(int(math.floor(trainFeeder.total_samples() / batchSize))):
-            # print "running batch %d"%(j)
-            # sys.stdout.flush()
-            imageBatch, gtBatch, ssBatch = trainFeeder.next_batch()
-            sess.run(train_op, feed_dict={tfBatchImages: imageBatch,
-                                          tfBatchGT: gtBatch,
-                                          tfBatchSS: ssBatch})
-        iteration += 1
+        train_op = tf.train.AdamOptimizer(learning_rate=learningRate).minimize(loss=loss)
+
+        init = tf.initialize_all_variables()
+
+        sess.run(init)
+        iteration = initialIteration
+
+
+        while iteration < 1000:
+            batchLosses = []
+            totalAngleError = 0
+            totalExceed45 = 0
+            totalExceed225 = 0
+            totalPredicted = 0
+
+            for k in tqdm(range(int(math.floor(valFeeder.total_samples() / batchSize)))):
+                imageBatch, gtBatch, ssBatch = valFeeder.next_batch()
+
+                batchLoss, batchAngleError, batchPredicted, batchExceed45, batchExceed225 = sess.run(
+                    [loss, angleError, numPredicted, exceed45, exceed225],
+                    feed_dict={tfBatchImages: imageBatch,
+                               tfBatchGT: gtBatch,
+                               tfBatchSS: ssBatch})
+                # print "ran iteration"
+                batchLosses.append(batchLoss)
+                totalAngleError += batchAngleError
+                totalPredicted += batchPredicted
+                totalExceed45 += batchExceed45
+                totalExceed225 += batchExceed225
+
+            if np.isnan(np.mean(batchLosses)):
+                print ("LOSS RETURNED NaN")
+                sys.stdout.flush()
+                break
+
+            print ("%s Itr: %d - val loss: %.3f, angle MSE: %.3f, exceed45: %.3f, exceed22.5: %.3f" % (
+                time.strftime("%H:%M:%S"), iteration,
+            float(np.mean(batchLosses)), totalAngleError / totalPredicted,
+            totalExceed45 / totalPredicted, totalExceed225 / totalPredicted))
+            sys.stdout.flush()
+
+            if (iteration > 0 and iteration % 5 == 0) or checkSaveFlag(modelSavePath):
+                modelSaver(sess, modelSavePath, savePrefix, iteration)
+
+            for j in range(int(math.floor(trainFeeder.total_samples() / batchSize))):
+                # print "running batch %d"%(j)
+                # sys.stdout.flush()
+                imageBatch, gtBatch, ssBatch = trainFeeder.next_batch()
+                sess.run(train_op, feed_dict={tfBatchImages: imageBatch,
+                                              tfBatchGT: gtBatch,
+                                              tfBatchSS: ssBatch})
+            iteration += 1
 
 def modelSaver(sess, modelSavePath, savePrefix, iteration, maxToKeep=5):
     allWeights = {}
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     train = True
 
     if train:
-        batchSize = 4
+        batchSize = 10
         learningRate = 1e-5
         # learningRateActual = 1e-7
         wd = 1e-5
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         train_model(model=model, outputChannels=outputChannels,
             learningRate=learningRate,
             trainFeeder=trainFeeder, valFeeder=valFeeder,
-            modelSavePath="./cityscapes/models/direction", savePrefix=savePrefix,
+            modelSavePath="../models/direction.mat", savePrefix=savePrefix,
             initialIteration=initialIteration)
 
 

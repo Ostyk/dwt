@@ -35,9 +35,9 @@ def forward_model(model, feeder, outputSavePath):
         keepProb = tf.placeholder("float")
 
         with tf.name_scope("model_builder"):
-            print "attempting to build model"
+            print ("attempting to build model")
             model.build(tfBatchDirs, tfBatchSS, keepProb=keepProb)
-            print "built the model"
+            print ("built the model")
 
         init = tf.initialize_all_variables()
 
@@ -57,8 +57,8 @@ def forward_model(model, feeder, outputSavePath):
             for j in range(len(idBatch)):
                 outputFilePath = os.path.join(outputSavePath, idBatch[j]+'.mat')
                 outputFileDir = os.path.dirname(outputFilePath)
-                # print outputFileDir
-                # print outputFilePath
+                # print (outputFileDir)
+                # print (outputFilePath)
                 # raw_input("pause")
 
                 if not os.path.exists(outputFileDir):
@@ -66,88 +66,80 @@ def forward_model(model, feeder, outputSavePath):
 
                 sio.savemat(outputFilePath, {"depth_map": outputBatch[j]})
 
-                print "processed image %d out of %d"%(j+batchSize*i, feeder.total_samples())
+                print ("processed image %d out of %d"%(j+batchSize*i, feeder.total_samples()))
 
 def train_model(model, outputChannels, learningRate, trainFeeder, valFeeder, modelSavePath=None, savePrefix=None, initialIteration=1):
     with tf.Session() as sess:
-        tfBatchDirs = tf.placeholder("float")
-        tfBatchGT = tf.placeholder("float")
-        tfBatchWeight = tf.placeholder("float")
-        tfBatchSS = tf.placeholder("float")
+        tfBatchDirs = tf.placeholder("float", shape=[None, 384, 384, 2])
+        tfBatchGT = tf.placeholder("float", shape=[None, 384, 384])
+        #tfBatchWeight = tf.placeholder("float")
+        tfBatchSS = tf.placeholder("float", shape=[None, 384, 384])
         keepProb = tf.placeholder("float")
 
         with tf.name_scope("model_builder"):
-            print "attempting to build model"
+            print ("attempting to build model")
             model.build(tfBatchDirs, tfBatchSS, keepProb=keepProb)
-            print "built the model"
+            print ("built the model")
         sys.stdout.flush()
-        loss = lossFunction.modelTotalLoss(pred=model.outputData, gt=tfBatchGT, weight=tfBatchWeight, ss=tfBatchSS, outputChannels=outputChannels)
-        numPredictedWeighted = lossFunction.countTotalWeighted(ss=tfBatchSS, weight=tfBatchWeight)
+        loss = lossFunction.modelTotalLoss(pred=model.outputData, gt=tfBatchGT, ss=tfBatchSS, outputChannels=outputChannels)
+        #numPredictedWeighted = lossFunction.countTotalWeighted(ss=tfBatchSS)
         numPredicted = lossFunction.countTotal(ss=tfBatchSS)
         numCorrect = lossFunction.countCorrect(pred=model.outputData, gt=tfBatchGT, ss=tfBatchSS, k=1, outputChannels=outputChannels)
 
         train_op = tf.train.AdamOptimizer(learning_rate=learningRate).minimize(loss=loss)
 
-        init = tf.initialize_all_variables()
+        #init = tf.initialize_all_variables()
+        sess.run(tf.global_variables_initializer())
 
-        sess.run(init)
         iteration = initialIteration
 
         while iteration < 1000:
-            batchLosses = []
-            totalPredicted = 0
-            totalCorrect = 0
-            totalPredictedWeighted = 0
+                batchLosses = []
+                totalPredicted = 0
+                totalCorrect = 0
 
-            for k in range(int(math.floor(valFeeder.total_samples() / batchSize))):
-                dirBatch, gtBatch, weightBatch, ssBatch, _ = valFeeder.next_batch()
-                # batchLoss, batchDepthError, batchPredicted, batchExceed3, batchExceed5 = \
-                #     sess.run([loss, depthError, numPredicted, exceed3, exceed5],
-                #                             feed_dict={tfBatchDirs: dirBatch,
-                #                                         tfBatchGT: gtBatch,
-                #                                         tfBatchSS: ssBatch})
+                for k in range(int(math.floor(trainFeeder.total_samples() / batchSize))):
+                    dirBatch, gtBatch, ssBatch = valFeeder.next_batch()
 
-                batchLoss, batchPredicted, batchPredictedWeighted, batchCorrect = sess.run([loss, numPredicted, numPredictedWeighted, numCorrect],
-                    feed_dict={tfBatchDirs: dirBatch,
-                               tfBatchGT: gtBatch,
-                               tfBatchWeight: weightBatch,
-                               tfBatchSS: ssBatch,
-                               keepProb: 1.0})
+                    batchLoss, batchPredicted, batchCorrect = sess.run([loss, numPredicted, numCorrect],
+                        feed_dict={tfBatchDirs: dirBatch,
+                                   tfBatchGT: gtBatch,
+                                   tfBatchSS: ssBatch,
+                                   keepProb: 1.0})
 
-                batchLosses.append(batchLoss)
-                totalPredicted += batchPredicted
-                totalPredictedWeighted += batchPredictedWeighted
-                totalCorrect += batchCorrect
+                    batchLosses.append(batchLoss)
+                    totalPredicted += batchPredicted
+                    totalCorrect += batchCorrect
 
-            if np.isnan(np.mean(batchLosses)):
-                print "LOSS RETURNED NaN"
+                if np.isnan(np.mean(batchLosses)):
+                    print ("LOSS RETURNED NaN")
+                    sys.stdout.flush()
+                    print( 1)
+
+                # print ("Itr: %d - b %d - val loss: %.3f, depth MSE: %.3f, exceed3: %.3f, exceed5: %.3f"%(iteration,j,
+                #     float(np.mean(batchLosses)), totalDepthError/totalPredicted,
+                #     totalExceed3/totalPredicted, totalExceed5/totalPredicted)
+                print ("%s Itr: %d - val loss: %.6f, correct: %.6f" % (time.strftime("%H:%M:%S"),
+                iteration, float(np.mean(batchLosses)), totalCorrect / totalPredicted))
+
+                if (iteration > 0 and iteration % 5 == 0) or checkSaveFlag(modelSavePath):
+                    modelSaver(sess, modelSavePath, savePrefix, iteration)
+
+                    # print ("Processed iteration %d, batch %d" % (i,j)
+                    # sys.stdout.flush()
+
                 sys.stdout.flush()
-                return 1
+                # raw_input("paused")
+                #for j in range(10):
+                for j in range(int(math.floor(valFeeder.total_samples() / batchSize))):
+                    dirBatch, gtBatch, ssBatch = trainFeeder.next_batch()
+                    sess.run(train_op, feed_dict={tfBatchDirs: dirBatch,
+                                                  tfBatchGT: gtBatch,
+                                                  tfBatchSS: ssBatch,
+                                                  keepProb: 0.7})
 
-            # print "Itr: %d - b %d - val loss: %.3f, depth MSE: %.3f, exceed3: %.3f, exceed5: %.3f"%(iteration,j,
-            #     float(np.mean(batchLosses)), totalDepthError/totalPredicted,
-            #     totalExceed3/totalPredicted, totalExceed5/totalPredicted)
-            print "%s Itr: %d - val loss: %.6f, correct: %.6f" % (time.strftime("%H:%M:%S"),
-            iteration, float(np.mean(batchLosses)), totalCorrect / totalPredicted)
+                iteration += 1
 
-            if (iteration > 0 and iteration % 5 == 0) or checkSaveFlag(modelSavePath):
-                modelSaver(sess, modelSavePath, savePrefix, iteration)
-
-                # print "Processed iteration %d, batch %d" % (i,j)
-                # sys.stdout.flush()
-
-            sys.stdout.flush()
-            # raw_input("paused")
-            #for j in range(10):
-            for j in range(int(math.floor(trainFeeder.total_samples() / batchSize))):
-                dirBatch, gtBatch, weightBatch, ssBatch, _ = trainFeeder.next_batch()
-                sess.run(train_op, feed_dict={tfBatchDirs: dirBatch,
-                                              tfBatchGT: gtBatch,
-                                              tfBatchWeight: weightBatch,
-                                              tfBatchSS: ssBatch,
-                                              keepProb: 0.7})
-
-            iteration += 1
 
 
 def modelSaver(sess, modelSavePath, savePrefix, iteration, maxToKeep=5):
@@ -159,14 +151,14 @@ def modelSaver(sess, modelSavePath, savePrefix, iteration, maxToKeep=5):
         saveName = nameParts[-4]+'/'+nameParts[-3]+'/'+nameParts[-2]
         allWeights[saveName] = param
 
-        # print "Name: %s Mean: %.3f Max: %.3f Min: %.3f std: %.3f" % (name,
+        # print ("Name: %s Mean: %.3f Max: %.3f Min: %.3f std: %.3f" % (name,
         #                                                              param.mean(),
         #                                                              param.max(),
         #                                                              param.min(),
         #                                                              param.std())
         # if name == "depth/fcn2/weights:0":
         #     for j in range(outputChannels):
-        #         print "ch: %d, max %e, min %e, std %e" % (
+        #         print ("ch: %d, max %e, min %e, std %e" % (
         #             j, param[:, :, :, j].max(), param[:, :, :, j].min(), param[:, :, :, j].std())
 
     # raw_input("done")
@@ -183,45 +175,53 @@ def checkSaveFlag(modelSavePath):
         return False
 
 if __name__ == "__main__":
+    
     outputChannels = 16
     classType = 'unified_CR'
-    indices = [0,1,2,3,4,5,6,7]
+    indices = [0]
     # 0=car, 1=person, 2=rider, 3=motorcycle, 4=bicycle, 5=truck, 6=bus, 7=train
     savePrefix = "depth_" + classType + "_CR_pretrain"
 
     train = True
 
     if train:
-        batchSize = 6
-        learningRate = 5e-4
-        wd = 1e-6
-
-        modelWeightPaths = []
+        batchSize = 4
+        learningRate = 1e-5
+        # learningRateActual = 1e-7
+        wd = 1e-5
         initialIteration = 1
 
-        model = initialize_model(outputChannels=outputChannels, wd=wd, modelWeightPaths=modelWeightPaths)
-        trainFeeder = Batch_Feeder(dataset="cityscapes",
-                                           indices=indices,
-                                           train=train,
-                                           batchSize=batchSize,
-                                           padWidth=None,
-                                           padHeight=None, flip=True, keepEmpty=False)
-        trainFeeder.set_paths(idList=read_ids('./cityscapes/splits/trainlist.txt'),
-                         gtDir="./cityscapes/unified/iGTFine/train",
-                         ssDir="./cityscapes/unified/ssMaskFineGT/train")
+        model = initialize_model(outputChannels=outputChannels, wd=wd, modelWeightPaths=None)
 
-        valFeeder = Batch_Feeder(dataset="cityscapes", indices=indices, train=train, batchSize=batchSize, padWidth=None, padHeight=None)
-        valFeeder.set_paths(idList=read_ids('./cityscapes/splits/vallist.txt'),
-                         gtDir="./cityscapes/unified/iGTFine/val",
-                         ssDir="./cityscapes/unified/ssMaskFineGT/val")
+        trainFeeder = Batch_Feeder(dataset_path="../../watershednet/data/for_training/42/", 
+                           indices=indices,
+                           subset='train',
+                           batchSize=batchSize,
+                           padWidth=None,
+                           padHeight=None, 
+                           flip=False,
+                           keepEmpty=False,
+                           train=True,
+                           img_shape = (384,384))
+        trainFeeder.set_paths()
+
+        valFeeder = Batch_Feeder(dataset_path="../../watershednet/data/for_training/42/", 
+                           indices=indices,
+                           subset='val',
+                           batchSize=batchSize,
+                           padWidth=None,
+                           padHeight=None, 
+                           flip=False,
+                           keepEmpty=False,
+                           train=True,
+                           img_shape = (384,384))
+        valFeeder.set_paths()
 
         train_model(model=model, outputChannels=outputChannels,
-                    learningRate=learningRate,
-                    trainFeeder=trainFeeder,
-                    valFeeder=valFeeder,
-                    modelSavePath="./cityscapes/models/depth",
-                    savePrefix=savePrefix,
-                    initialIteration=initialIteration)
+            learningRate=learningRate,
+            trainFeeder=trainFeeder, valFeeder=valFeeder,
+            modelSavePath="../models/depth", savePrefix=savePrefix,
+            initialIteration=initialIteration)
 
     else:
         batchSize = 5
