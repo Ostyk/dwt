@@ -7,7 +7,7 @@ models/
 resources/train.tfrecords
 resources/test.tfrecords
 models/checkpoints
-
+final_model
 # C extensions
 *.so
 

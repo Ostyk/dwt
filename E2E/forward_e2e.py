@@ -54,88 +54,88 @@ def initialize_model(outputChannels, wd=None, modelWeightPaths=None):
 
     return joint_model2_wide.Network(params, wd=wd, modelWeightPaths=modelWeightPaths)
 
-def forward_model(model, feeder, outputSavePath):
-    with tf.Session() as sess:
-        images = tf.placeholder("float")
-        tfBatchImages = tf.expand_dims(images, 0)
-        ss = tf.placeholder("float")
-        tfBatchSS = tf.expand_dims(ss, 0)
-        keepProb = tf.placeholder("float")
+# def forward_model(model, feeder, outputSavePath):
+#     with tf.Session() as sess:
+#         images = tf.placeholder("float")
+#         tfBatchImages = tf.expand_dims(images, 0)
+#         ss = tf.placeholder("float")
+#         tfBatchSS = tf.expand_dims(ss, 0)
+#         keepProb = tf.placeholder("float")
 
-        with tf.name_scope("model_builder"):
-            print "attempting to build model"
-            model.build(tfBatchImages, tfBatchSS, keepProb=keepProb)
-            print "built the model"
+#         with tf.name_scope("model_builder"):
+#             print "attempting to build model"
+#             model.build(tfBatchImages, tfBatchSS, keepProb=keepProb)
+#             print "built the model"
 
-        init = tf.initialize_all_variables()
+#         init = tf.initialize_all_variables()
 
-        sess.run(init)
+#         sess.run(init)
 
-        if not os.path.exists(outputSavePath):
-            os.makedirs(outputSavePath)
-        # for i in range(1):
-        for i in range(int(math.floor(feeder.total_samples() / batchSize))):
-            imageBatch, ssBatch, idBatch = feeder.next_batch()
-            # skimage.io.imsave("/u/mbai/transfer/scaledimage.png",imageBatch[0,:,:,:])
-            # sio.savemat("/u/mbai/transfer/scaledimage.mat",{'image':imageBatch[0,:,:,:]})
-            # raw_input("saved")
+#         if not os.path.exists(outputSavePath):
+#             os.makedirs(outputSavePath)
+#         # for i in range(1):
+#         for i in range(int(math.floor(feeder.total_samples() / batchSize))):
+#             imageBatch, ssBatch, idBatch = feeder.next_batch()
+#             # skimage.io.imsave("/u/mbai/transfer/scaledimage.png",imageBatch[0,:,:,:])
+#             # sio.savemat("/u/mbai/transfer/scaledimage.mat",{'image':imageBatch[0,:,:,:]})
+#             # raw_input("saved")
 
-            outputBatch = sess.run(model.outputDataArgMax, feed_dict={tfBatchImages: imageBatch,
-                                                                      tfBatchSS: ssBatch,
-                                                                      keepProb: 1.0})
-            outputBatch = outputBatch.astype(np.uint8)
+#             outputBatch = sess.run(model.outputDataArgMax, feed_dict={tfBatchImages: imageBatch,
+#                                                                       tfBatchSS: ssBatch,
+#                                                                       keepProb: 1.0})
+#             outputBatch = outputBatch.astype(np.uint8)
 
-            # outputBatch = sess.run(model.direction, feed_dict={tfBatchImages: imageBatch,
-            #                                                           tfBatchSS: ssBatch,
-            #                                                           keepProb: 1.0})
+#             # outputBatch = sess.run(model.direction, feed_dict={tfBatchImages: imageBatch,
+#             #                                                           tfBatchSS: ssBatch,
+#             #                                                           keepProb: 1.0})
 
-            for j in range(len(idBatch)):
-                outputFilePath = os.path.join(outputSavePath, idBatch[j]+'.mat')
-                # outputFilePath = os.path.join(outputSavePath, idBatch[j] + '.png')
-                outputFileDir = os.path.dirname(outputFilePath)
+#             for j in range(len(idBatch)):
+#                 outputFilePath = os.path.join(outputSavePath, idBatch[j]+'.mat')
+#                 # outputFilePath = os.path.join(outputSavePath, idBatch[j] + '.png')
+#                 outputFileDir = os.path.dirname(outputFilePath)
 
-                if not os.path.exists(outputFileDir):
-                    os.makedirs(outputFileDir)
+#                 if not os.path.exists(outputFileDir):
+#                     os.makedirs(outputFileDir)
 
-                sio.savemat(outputFilePath, {"depth_map": outputBatch[j]}, do_compression=True)
+#                 sio.savemat(outputFilePath, {"depth_map": outputBatch[j]}, do_compression=True)
 
-                # skimage.io.imsave(outputFilePath, outputBatch[j])
+#                 # skimage.io.imsave(outputFilePath, outputBatch[j])
 
-                # sio.savemat(outputFilePath, {"dir_map": outputBatch[j]})
+#                 # sio.savemat(outputFilePath, {"dir_map": outputBatch[j]})
 
-            print "processed image %d to %d out of %d"%(i*batchSize+1, (i+1)*batchSize, feeder.total_samples())
-            sys.stdout.flush()
+#             print "processed image %d to %d out of %d"%(i*batchSize+1, (i+1)*batchSize, feeder.total_samples())
+#             sys.stdout.flush()
 
-if __name__ == "__main__":
-    outputChannels = 16
-    outputPrefix = "submission3"
-    outputSet = 'val'
-    batchSize = 10
+# if __name__ == "__main__":
+#     outputChannels = 16
+#     outputPrefix = "submission3"
+#     outputSet = 'val'
+#     batchSize = 10
 
-    configurations = {'car': {"index":[0], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
-                      'truck': {"index":[5], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
-                      'bus': {"index": [6], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
-                      'train': {"index": [7], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
-                      'person': {"index": [1], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_humans_final_wideup_ssLRR_010.mat"]},
-                      'rider': {"index": [2], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_humans_final_wideup_ssLRR_010.mat"]},
-                      'motorcycle': {"index": [3], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_cycles_final_wideup_ssLRR_010.mat"]},
-                      'bicycle': {"index": [4], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_cycles_final_wideup_ssLRR_010.mat"]},
-                      }
-    # 0=car, 1=person, 2=rider, 3=motorcycle, 4=bicycle, 5=truck, 6=bus, 7=train
+#     configurations = {'car': {"index":[0], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
+#                       'truck': {"index":[5], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
+#                       'bus': {"index": [6], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
+#                       'train': {"index": [7], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_vehicles_final_wideup_ssLRR_045.mat"]},
+#                       'person': {"index": [1], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_humans_final_wideup_ssLRR_010.mat"]},
+#                       'rider': {"index": [2], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_humans_final_wideup_ssLRR_010.mat"]},
+#                       'motorcycle': {"index": [3], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_cycles_final_wideup_ssLRR_010.mat"]},
+#                       'bicycle': {"index": [4], "model": ["/ais/gobi4/mbai/instance_seg/cityscapes/models/joint/joint2_cycles_final_wideup_ssLRR_010.mat"]},
+#                       }
+#     # 0=car, 1=person, 2=rider, 3=motorcycle, 4=bicycle, 5=truck, 6=bus, 7=train
 
-    for type in configurations:
-        model = initialize_model(outputChannels=outputChannels, modelWeightPaths=configurations[type]["model"])
+#     for type in configurations:
+#         model = initialize_model(outputChannels=outputChannels, modelWeightPaths=configurations[type]["model"])
 
-        feeder = Batch_Feeder(dataset="cityscapes",
-                                      indices=configurations[type]["index"],
-                                      train=False,
-                                      batchSize=batchSize)
+#         feeder = Batch_Feeder(dataset="cityscapes",
+#                                       indices=configurations[type]["index"],
+#                                       train=False,
+#                                       batchSize=batchSize)
 
-        feeder.set_paths(idList=read_ids('/ais/gobi4/mbai/instance_seg/cityscapes/splits/'+outputSet+'list.txt'),
-                         imageDir="/ais/gobi4/mbai/instance_seg/cityscapes/inputImages/"+outputSet,
-                            ssDir="/ais/gobi4/mbai/instance_seg/cityscapes/unified/ssMaskFineLRR/"+outputSet)
+#         feeder.set_paths(idList=read_ids('/ais/gobi4/mbai/instance_seg/cityscapes/splits/'+outputSet+'list.txt'),
+#                          imageDir="/ais/gobi4/mbai/instance_seg/cityscapes/inputImages/"+outputSet,
+#                             ssDir="/ais/gobi4/mbai/instance_seg/cityscapes/unified/ssMaskFineLRR/"+outputSet)
 
-        forward_model(model, feeder=feeder,
-                      outputSavePath="/ais/gobi4/mbai/instance_seg/training/outputs/%s/%s/%s"%(outputPrefix, outputSet, type))
+#         forward_model(model, feeder=feeder,
+#                       outputSavePath="/ais/gobi4/mbai/instance_seg/training/outputs/%s/%s/%s"%(outputPrefix, outputSet, type))
 
-        tf.reset_default_graph()
+#         tf.reset_default_graph()

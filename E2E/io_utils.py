@@ -107,7 +107,9 @@ class Batch_Feeder:
                 #angle = self.load_npy(os.path.join(self.root, current_tuple.angle))
                 dt = self.load_npy(os.path.join(self.root, current_tuple.dt))
 
-                mask =   cv2.imread(os.path.join(self.root, current_tuple.unet), cv2.IMREAD_GRAYSCALE)
+                #mask =  cv2.imread(os.path.join(self.unet_output_path , current_tuple.unet), cv2.IMREAD_GRAYSCALE)
+                polygons = self.polygons[current_tuple.img]['polygons']
+                mask = self.load_mask(rgb, polygons)
                 imageBatch[tmp] = rgb
                 gtBatch[tmp] = dt
                 ssBatch[tmp] = mask
@@ -136,7 +138,7 @@ class Batch_Feeder:
                         gtBatch[i,:,:,j] = np.fliplr(gtBatch[i,:,:,j])
 
                     gtBatch[i,:,:,0] = -1 * gtBatch[i,:,:,0]
-            return dirBatch, gtBatch, ssBatch
+            return imageBatch, gtBatch, ssBatch, len(polygons)
         else:
             pass
             self._index_in_epoch += self._batchSize

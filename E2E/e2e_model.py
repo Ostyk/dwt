@@ -15,7 +15,7 @@ class Network:
             for path in modelWeightPaths:
                 self.modelDict.update(sio.loadmat(path))
 
-    def build(self, inputData, ss=None, ssMask=None, keepProb=1.0):
+    def build(self, inputData, ss=None, keepProb=1.0):
 #         if ss is not None:
 #             ss = tf.expand_dims(ss,-1)
 #             inputData = inputData * ss

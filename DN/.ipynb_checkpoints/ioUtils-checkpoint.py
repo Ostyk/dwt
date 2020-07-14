@@ -29,7 +29,7 @@ def read_ids(path):
     return [line.rstrip('\n') for line in open(path)]
 
 class Batch_Feeder:
-    def __init__(self, dataset_path, indices, subset, batchSize, padWidth=None, padHeight=None, flip=False, keepEmpty=True, train=True, img_shape=(384,384)):
+    def __init__(self, dataset_path, unet_output_path, indices, subset, batchSize, padWidth=None, padHeight=None, flip=False, keepEmpty=True, train=True, img_shape=(384,384)):
         
         assert subset in ['train', 'val', 'test'], "wrong name of subset"
         self._epochs_completed = 0
@@ -44,6 +44,7 @@ class Batch_Feeder:
         self._flip = flip
         self._keepEmpty = keepEmpty
         self.img_shape = img_shape
+        self.unet_output_path = os.path.join(unet_output_path, subset)
         mask_path = os.path.join(self._dataset_path, 'polygons.json')
         with open(mask_path) as f:
             self.polygons = json.load(f)
@@ -60,14 +61,17 @@ class Batch_Feeder:
         imgs = sorted([i for i in os.listdir(self.root) if i.endswith('.png')])
         gt_DT = sorted([i for i in os.listdir(self.root) if i.endswith('.npy') and 'DT' in i])
         gt_angle = sorted([i for i in os.listdir(self.root) if i.endswith('.npy') and 'angle' in i])
-
+        unet_outputs = sorted([i for i in os.listdir(self.unet_output_path) if i.endswith('.png')])
+        
+        assert len(imgs)==len(unet_outputs), 'mismatch in imgs and unet++ outputs'
+        #actually nested unet++
 #         if self._train:
 
         # TO DO: support batch wise inference
 
-        entry = namedtuple("gt", "index img angle dt")
-        for index, (img, angle, dt) in enumerate(zip(imgs, gt_angle, gt_DT)):
-            self._paths.append(entry(index, img, angle, dt))
+        entry = namedtuple("gt", "index img angle dt unet")
+        for index, (img, angle, dt, unet) in enumerate(zip(imgs, gt_angle, gt_DT, unet_outputs)):
+            self._paths.append(entry(index, img, angle, dt, unet))
 
              
 
@@ -92,6 +96,8 @@ class Batch_Feeder:
         gtBatch = np.zeros((self._batchSize,  self.img_shape[0], self.img_shape[1], 2), dtype=np.float32)
         ssBatch = np.zeros((self._batchSize,  self.img_shape[0], self.img_shape[1]))
         
+        ssUnet = np.zeros((self._batchSize,  self.img_shape[0], self.img_shape[1]))
+        
         tmp = 0
         
         if self._train:
@@ -110,11 +116,13 @@ class Batch_Feeder:
                 
                 polygons = self.polygons[current_tuple.img]['polygons']
                 mask = self.load_mask(rgb, polygons)
-
-
+                
+                mask_pred =  cv2.imread(os.path.join(self.unet_output_path , current_tuple.unet), cv2.IMREAD_GRAYSCALE)
+    
                 imageBatch[tmp] = rgb
                 gtBatch[tmp] = unit_vector_angle
                 ssBatch[tmp] = mask
+                ssUnet[tmp] = mask_pred
 
                 idBatch.append(current_tuple.index)
                 
@@ -140,7 +148,7 @@ class Batch_Feeder:
                         gtBatch[i,:,:,j] = np.fliplr(gtBatch[i,:,:,j])
 
                     gtBatch[i,:,:,0] = -1 * gtBatch[i,:,:,0]
-            return imageBatch, gtBatch, ssBatch
+            return imageBatch, gtBatch, ssBatch, ssUnet
         else:
             pass
             self._index_in_epoch += self._batchSize

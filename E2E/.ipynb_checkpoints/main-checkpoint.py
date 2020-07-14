@@ -15,13 +15,13 @@ if __name__ == "__main__":
     train = True
 
     if train:
-        batchSize = 3
+        batchSize = 5
         learningRate = 5e-6 # usually i use 5e-6
         wd = 1e-6
 
         #modelWeightPaths = [""]
         model_dir = "../best_models"
-        modelWeightPaths = [os.path.join(model_dir, i) for i in os.listdir(model_dir)]
+        modelWeightPaths = [os.path.join(model_dir, i) for i in os.listdir(model_dir) if i.endswith(".mat")]
 
         initialIteration = 1
         trainFeeder = Batch_Feeder(dataset_path="../../watershednet/data/for_training/42/", 
