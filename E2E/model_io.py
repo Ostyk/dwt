@@ -14,7 +14,7 @@ def modelSaver(sess, modelSavePath, savePrefix, iteration, maxToKeep=5):
 
     savePath = os.path.join(modelSavePath, savePrefix+'_%03d'%iteration)
     sio.savemat(savePath, allWeights)
-    print "saving model to %s" % savePath
+    print ("saving model to %s" % savePath)
 
 def checkSaveFlag(modelSavePath):
     flagPath = os.path.join(modelSavePath, 'saveme.flag')

@@ -15,9 +15,9 @@ def forward_model(model, feeder, outputSavePath, batchSize=1):
         keepProb = tf.placeholder("float")
 
         with tf.name_scope("model_builder"):
-            print "attempting to build model"
+            print ("attempting to build model")
             model.build(tfBatchImages, tfBatchSS, tfBatchSSMask, keepProb=keepProb)
-            print "built the model"
+            print ("built the model")
 
         init = tf.initialize_all_variables()
 
@@ -50,5 +50,5 @@ def forward_model(model, feeder, outputSavePath, batchSize=1):
 
                 sio.savemat(outputFilePathMat, {"depth_map": outputBatch[j]}, do_compression=True)
 
-                print "processed image %d out of %d" % (j + batchSize * i + 1, feeder.total_samples())
+                print ("processed image %d out of %d" % (j + batchSize * i + 1, feeder.total_samples()))
                 sys.stdout.flush()

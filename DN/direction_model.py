@@ -113,7 +113,7 @@ class Network:
             elif params["act"] == "tanh":
                 activation = tf.nn.tanh(tf.nn.bias_add(conv, conv_biases))
 
-            if not isinstance(keepProb, (int, np.long, float)):
+            if not isinstance(keepProb, (int, np.int, float)):
                 activation = tf.nn.dropout(activation, keep_prob=keepProb, seed=0)
 
         return activation
